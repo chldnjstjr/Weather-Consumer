@@ -18,7 +18,7 @@
 #names(trans) <- c("DATE","SEX","AGE","CAT1","CAT2", "QTY")
 #str(trans)
 
-install.packages("data.table")
+#install.packages("data.table")
 library(data.table)
 trans <- fread("G:/내 드라이브/2021-1/날씨와 소비/data/trans.csv",  header = TRUE,encoding="UTF-8")
 head(trans)
@@ -90,6 +90,9 @@ aggregate(QTY, by=list(AGE,CAT1,CAT2), FUN=mean)
 ### SEX*AGE*CAY*QTY
 aggregate(QTY, by=list(SEX,AGE,CAT1,CAT2), FUN=sum)
 aggregate(QTY, by=list(SEX,AGE,CAT1,CAT2), FUN=mean)
+
+
+
 
 #노션에 코드 공유
 library(reprex)
