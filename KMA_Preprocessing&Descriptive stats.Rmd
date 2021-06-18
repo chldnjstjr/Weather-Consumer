@@ -62,12 +62,8 @@ https://gomguard.tistory.com/212
 
 # 필요 패키지 
 ```{r}
-library(data.table)
-library(dplyr)
-library(pastecs)
-library(tidyverse)
-library(lubridate) #날짜 변수 다뤄야함 
-library(ggplot2)
+library(pacman)
+pacman::p_load("data.table", "dplyr", "pastecs", "tidyverse", "lubridate", "ggplot2","stringr")
 ```
 
 # 데이터 불러오기
@@ -75,9 +71,30 @@ library(ggplot2)
 trans <- fread("G:/내 드라이브/2021-1/날씨와 소비/data/trans.csv",  header = TRUE,encoding="UTF-8")
 trans <- rename(trans, "CAT3" = "CAT2") #소분류로 이름 미리 변경, 이따 조인해야함. 
 trans <- trans[,-1] #앞에 왜 추가됐는지 모르겠는 열 삭제
-trans$DATE <- ymd(trans$DATE)
-
 ```
+
+```{r 시간 변수 관련 전처리}
+trans$MONTH <- as.numeric(str_sub(trans$DATE, 5,6)) #문자열을 일단 그대로 두고 월 파생변수 추가
+trans$YEAR <- as.factor(str_sub(trans$DATE, 1,4))
+trans$DATE <- ymd(trans$DATE)
+trans$WEEKDAY <- as.factor(weekdays.POSIXt(trans$DATE))
+trans$DAY <- as.factor(day(trans$DATE)) #문자로 안하고 그냥 이렇게 하면됨...year, month 함수도 있음. 요일은 wday. 그 해에 몇 번째 날이었는지 yday. 상반기 하반기는 semester. 4분기 구분은 quarter. 
+trans$YDAY <- as.factor(yday(trans$DATE))
+trans$SEME <- as.factor(semester(trans$DATE))
+trans$QUARTER <- as.factor(quarter(trans$DATE))
+
+#계절생성함수
+seasons = function(x){
+  if(x %in% 2:4) return('Spring')
+  if(x %in% 5:7) return('Summer')
+  if(x %in% 8:10) return('Fall')
+  if(x %in% c(11,12,1)) return('Winter')
+}
+trans$SEASON = sapply(trans$MONTH, seasons) #만든 함수 자체가 메모리 하자가 너무 큼. 
+trans$SEASON = as.factor(trans$SEASON)
+trans$MONTH = as.factor(trans$MONTH)
+```
+
 
 ```{r}
 #확인 
@@ -114,10 +131,13 @@ sum(is.na(trans))
 dict <- fread("G:/내 드라이브/2021-1/날씨와 소비/data/dict.csv", header=T,encoding="UTF-8")
 head(dict)
 ```
-```{r}
+```{r 중분류 추가와 변수이름 및 순서 변경}
 trans <- left_join(trans,dict,by='CAT3')
-trans <-trans[,c(1,2,3,4,7,5,6)]
 head(trans)
+names(trans)
+trans <- trans[,c("DATE","YEAR","MONTH","DAY","WEEKDAY","YDAY","SEASON","SEME","QUARTER","SEX","AGE","CAT1","CAT2","CAT3","QTY")]
+head(trans)
+str(trans)
 ```
 
 
@@ -135,7 +155,11 @@ sex_freq <- table(SEX)
 round(prop.table(sex_freq)*100,1)#비율
 barplot(sex_freq) #그래프 예쁘게 하는건 나중에!
 ```
+### 시간에 따른 연령
+```{r 성별*시간}
+#크게 의미 없을 것 같은 통계치이지만 그래도 보자.
 
+```
 
 
 ### 연령 통계
@@ -151,6 +175,12 @@ age_sex <- ftable(AGE~SEX, data=trans) #연령별 성별 분포
 barplot(age_sex)
 round(prop.table(age_sex)*100, 1) #연령 성별 분포 
 ```
+
+### 시간에 따른 연령*성별
+```{r}
+
+```
+
 
 ## 상품
 ### 분류별 거래 건수
@@ -247,3 +277,7 @@ sex_age_cat_qty <- aggregate(QTY, by=list(SEX,AGE,CAT1,CAT2), FUN=median)[order(
 sex_age_cat_qty[order(sex_age_cat_qty$x,decreasing = T),]
 ```
 
+# 참고 자료 
+## 날짜 변수 
+
+https://kuduz.tistory.com/1201 

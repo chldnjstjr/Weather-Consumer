@@ -1,100 +1,49 @@
-#Dataset list 
-#list <- dbGetQuery(conn, "show tables")
-#list
+library(pacman)
+pacman::p_load("data.table", "dplyr", "pastecs", "tidyverse", "lubridate", "ggplot2","stringr")
 
-#buy2018_1 <- dbGetQuery(conn, "select * from buy2018_1")
-#buy2018_2 <- dbGetQuery(conn, "select * from buy2018_2")
-#buy2019_1 <- dbGetQuery(conn, "select * from buy2019_1")
-#buy2019_2 <- dbGetQuery(conn, "select * from buy2019_2")
-
-#rbind 
-#https://rfriend.tistory.com/225
-#library(data.table)
-#trans <- rbindlist(list(buy2018_1, buy2018_2, buy2019_1, buy2019_2))
-#head(trans)
-#nrow(trans)
-#write.csv(trans, "trans.csv", fileEncoding = "utf-8")
-#sum(is.na(trans))
-#names(trans) <- c("DATE","SEX","AGE","CAT1","CAT2", "QTY")
-#str(trans)
-
-#install.packages("data.table")
-library(data.table)
 trans <- fread("G:/내 드라이브/2021-1/날씨와 소비/data/trans.csv",  header = TRUE,encoding="UTF-8")
+trans <- rename(trans, "CAT3" = "CAT2") #소분류로 이름 미리 변경, 이따 조인해야함. 
+trans <- trans[,-1] #앞에 왜 추가됐는지 모르겠는 열 삭제
+
+trans$MONTH <- as.numeric(str_sub(trans$DATE, 5,6)) #문자열을 일단 그대로 두고 월 파생변수 추가
+trans$YEAR <- as.factor(str_sub(trans$DATE, 1,4))
+trans$DATE <- ymd(trans$DATE)
+trans$WEEKDAY <- as.factor(weekdays.POSIXt(trans$DATE))
+trans$DAY <- as.factor(day(trans$DATE)) #문자로 안하고 그냥 이렇게 하면됨...year, month 함수도 있음. 요일은 wday. 그 해에 몇 번째 날이었는지 yday. 상반기 하반기는 semester. 4분기 구분은 quarter. 
+trans$YDAY <- as.factor(yday(trans$DATE))
+trans$SEME <- as.factor(semester(trans$DATE))
+trans$QUARTER <- as.factor(quarter(trans$DATE))
+
+#계절생성함수
+seasons = function(x){
+  if(x %in% 2:4) return('Spring')
+  if(x %in% 5:7) return('Summer')
+  if(x %in% 8:10) return('Fall')
+  if(x %in% c(11,12,1)) return('Winter')
+}
+trans$SEASON = sapply(trans$MONTH, seasons) #만든 함수 자체가 메모리 하자가 너무 큼. 
+trans$SEASON = as.factor(trans$SEASON)
+trans$MONTH = as.factor(trans$MONTH)
+
+#확인 
+str(trans)
 head(trans)
 sum(is.na(trans))
 
-#인구 통계
+#품목 추가
+dict <- fread("G:/내 드라이브/2021-1/날씨와 소비/data/dict.csv", header=T,encoding="UTF-8")
+head(dict)
+trans <- left_join(trans,dict,by='CAT3')
+head(trans)
+names(trans)
+trans <- trans[,c("DATE","YEAR","MONTH","DAY","WEEKDAY","YDAY","SEASON","SEME","QUARTER","SEX","AGE","CAT1","CAT2","CAT3","QTY")]
+head(trans)
+str(trans)
+
 attach(trans)
 
-###SEX
 table(SEX)
 sex_freq <- table(SEX)
 round(prop.table(sex_freq)*100,1)#비율
-barplot(sex_freq)
+barplot(sex_freq) #그래프 예쁘게 하는건 나중에!
 
-###AGE
-table(AGE)
-age_freq <- table(AGE)
-round(prop.table(age_freq)*100,1)
-
-###AGE*SEX
-age_sex <- ftable(AGE~SEX, data=trans) #연령별 성별 분포
-barplot(age_sex)
-round(prop.table(age_sex)*100, 1) #연령 성별 분포 
-
-## Product
-### Catergory
-table(CAT1)#대분류 카테고리별 거래 건수(판매량 아님)
-table(CAT2)
-cat1_freq <- table(CAT1)
-cat2_freq <- table(CAT2)
-barplot(cat1_freq)#거래건수 냉난방가전<뷰티<식품
-prop.table(cat1_freq)*100
-tail(sort(prop.table(cat2_freq)*100), n=10) #가장 높은게 1%도 안됨
-
-
-#왜 생수가 여러개? 
-
-### QTY
-#install.packages("dplyr")
-library(dplyr)
-
-#### 연속형변수에 대한 기초적인 분포 확인
-summary(QTY)
-#install.packages("pastecs")
-library(pastecs)
-round(stat.desc(QTY),2) #총판매랑 3억9천, 한 번에 최다판매 2774개, 평균이 19, 중앙 6
-hist(QTY,breaks="FD",xlab="판매량", main="판매량 히스토그램")#거의 무슨 카이제곱분포
-
-##### 이상치 제거해보기
-Q1 = quantile(QTY,probs = c(0.25),na.rm = TRUE) #1분위수
-Q3 = quantile(QTY,probs = c(0.75),na.rm = TRUE) #3분위수
-LC = Q1 - 1.5 * (Q3 - Q1) # 아래 울타리
-UC = Q3 + 1.5 * (Q3 - Q1) # 위 울타리
-QTY_outlier_none = subset(QTY,QTY >  LC & QTY < UC)
-hist(QTY_outlier_none,xlab="판매량", main="이상치 제거한 판매량 히스토그램")#거의 무슨 카이제곱분포
-
-### CAT*QTY
-aggregate(QTY, by=list(CAT1,CAT2), FUN=sum) #CAT1*CAT2 판매량 합계
-
-### SEX*CAT*QTY 
-aggregate(QTY, by=list(SEX,CAT1,CAT2), FUN=sum)[order(QTY),]
-sex_cat_qty <- aggregate(QTY, by=list(SEX,CAT1,CAT2), FUN=mean)
-sex_cat_qty[order(sex_cat_qty$x,decreasing = T),] #성별 CAT2 평균판매량
-
-### AGE*CAT*QTY
-aggregate(QTY, by=list(AGE,CAT1,CAT2), FUN=sum)
-aggregate(QTY, by=list(AGE,CAT1,CAT2), FUN=mean)
-
-### SEX*AGE*CAY*QTY
-aggregate(QTY, by=list(SEX,AGE,CAT1,CAT2), FUN=sum)
-aggregate(QTY, by=list(SEX,AGE,CAT1,CAT2), FUN=mean)
-
-
-
-
-#노션에 코드 공유
-library(reprex)
-
-reprex::reprex(advertise=FALSE)
