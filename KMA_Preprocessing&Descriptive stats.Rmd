@@ -65,14 +65,27 @@ https://gomguard.tistory.com/212
 library(data.table)
 library(dplyr)
 library(pastecs)
+library(tidyverse)
+library(lubridate) #날짜 변수 다뤄야함 
+library(ggplot2)
 ```
 
 # 데이터 불러오기
 ```{r data load}
 trans <- fread("G:/내 드라이브/2021-1/날씨와 소비/data/trans.csv",  header = TRUE,encoding="UTF-8")
+trans <- rename(trans, "CAT3" = "CAT2") #소분류로 이름 미리 변경, 이따 조인해야함. 
+trans <- trans[,-1] #앞에 왜 추가됐는지 모르겠는 열 삭제
+trans$DATE <- ymd(trans$DATE)
+
+```
+
+```{r}
+#확인 
+str(trans)
 head(trans)
 sum(is.na(trans))
 ```
+
 
 # 전처리 
 
@@ -83,85 +96,154 @@ sum(is.na(trans))
 
 **'네이버쇼핑'**의 분류 체계 차용. 아래 기술하겠으나 **그 목적에 맞게 일부 수정**하여 분류하였음. 
 
+특히 뷰티를 보면 네이버쇼핑의 분류와 굉장히 흡사함. 
+
 #### 식품 
 물에 타먹는 가루(미숫가루 등)와 같이 물이 없이는 존재가 무의미한 보완재 성격의 제품은 그 목적에 맞게 음료로 분류하였음
 
 
 #### 뷰티 
-
+네이버쇼핑의 분류와 굉장히 흡사하다. 출제자의 배려 덕분에 매우 쉽게 분류할 수 있음. 그러나 사전을 구축하는 작업이 지금은 가공된 데이터이기 때문에 얼마 되지 않으니깐 그냥 엑셀로 뚝딱했지만 더 자동화할 수 있는 방법 찾아내서 구현해야함(제출 전까지 시간이 남는다면..). 
 
 
 #### 냉난방가전
+냉온풍기 때문에 굉장히 애매했음. 총 4자지로 분류함. 
 
 
 ```{r}
-
+dict <- fread("G:/내 드라이브/2021-1/날씨와 소비/data/dict.csv", header=T,encoding="UTF-8")
+head(dict)
+```
+```{r}
+trans <- left_join(trans,dict,by='CAT3')
+trans <-trans[,c(1,2,3,4,7,5,6)]
+head(trans)
 ```
 
 
-## 기술 통계
+# 기술 통계
 ```{r}
 attach(trans)
 ```
 
+## 인구통계
+
 ### 성별 통계
+```{r}
 table(SEX)
 sex_freq <- table(SEX)
 round(prop.table(sex_freq)*100,1)#비율
-barplot(sex_freq)
+barplot(sex_freq) #그래프 예쁘게 하는건 나중에!
+```
+
+
 
 ### 연령 통계
+```{r}
 table(AGE)
 age_freq <- table(AGE)
 round(prop.table(age_freq)*100,1)
+```
 
-###AGE*SEX
+### 연령*성별
+```{r}
 age_sex <- ftable(AGE~SEX, data=trans) #연령별 성별 분포
 barplot(age_sex)
 round(prop.table(age_sex)*100, 1) #연령 성별 분포 
+```
 
-## Product
-### Catergory
+## 상품
+### 분류별 거래 건수
+```{r}
 table(CAT1)#대분류 카테고리별 거래 건수(판매량 아님)
-table(CAT2)
-cat1_freq <- table(CAT1)
-cat2_freq <- table(CAT2)
+cat1_freq <- table(CAT1) #마찬가지로 거래건수임
 barplot(cat1_freq)#거래건수 냉난방가전<뷰티<식품
 prop.table(cat1_freq)*100
-tail(sort(prop.table(cat2_freq)*100), n=10) #가장 높은게 1%도 안됨
+tail(sort(prop.table(cat1_freq)*100), n=10) #가장 높은게 1%도 안됨
+```
+```{r}
+table(CAT2)
+cat2_freq <- table(CAT2)
+round(prop.table(cat2_freq)*100,2)
+tail(sort(prop.table(cat2_freq)*100), n=5) #거래건수 Top5
+barplot(cat2_freq) #그래프는 나중에 예쁘게!
+```
+```{r}
+cat3_freq <- table(CAT3)
+round(prop.table(cat3_freq)*100,2)
+tail(sort(prop.table(cat3_freq)*100), n=5) #거래건수 Top5 
+```
 
 
-#왜 생수가 여러개? 
+## 판매량
 
-### QTY
-
-
-#### 연속형변수에 대한 기초적인 분포 확인
-summary(QTY)
-#install.packages("pastecs")
+### 연속형변수에 대한 기초적인 분포 확인
+```{r}
 round(stat.desc(QTY),2) #총판매랑 3억9천, 한 번에 최다판매 2774개, 평균이 19, 중앙 6
 hist(QTY,breaks="FD",xlab="판매량", main="판매량 히스토그램")#거의 무슨 카이제곱분포
+```
 
-##### 이상치 제거해보기
+### 판매량 이상치 제거해보기
+```{r}
 Q1 = quantile(QTY,probs = c(0.25),na.rm = TRUE) #1분위수
 Q3 = quantile(QTY,probs = c(0.75),na.rm = TRUE) #3분위수
 LC = Q1 - 1.5 * (Q3 - Q1) # 아래 울타리
 UC = Q3 + 1.5 * (Q3 - Q1) # 위 울타리
 QTY_outlier_none = subset(QTY,QTY >  LC & QTY < UC)
-hist(QTY_outlier_none,xlab="판매량", main="이상치 제거한 판매량 히스토그램")#거의 무슨 카이제곱분포
+hist(QTY_outlier_none,xlab="판매량", main="이상치 제거한 판매량 히스토그램")#그나마 예쁜 카이제곱 분포
+```
 
 ### CAT*QTY
+```{r}
 aggregate(QTY, by=list(CAT1,CAT2), FUN=sum) #CAT1*CAT2 판매량 합계
+```
 
-### SEX*CAT*QTY 
+### 성별&카테고리별 판매량
+```{r}
+#합계
 aggregate(QTY, by=list(SEX,CAT1,CAT2), FUN=sum)[order(QTY),]
-sex_cat_qty <- aggregate(QTY, by=list(SEX,CAT1,CAT2), FUN=mean)
-sex_cat_qty[order(sex_cat_qty$x,decreasing = T),] #성별 CAT2 평균판매량
+sex_cat_qty <- aggregate(QTY, by=list(SEX,CAT1,CAT2), FUN=sum)[order(QTY),]
+sex_cat_qty[order(sex_cat_qty$x,decreasing = T),] #성별 CAT2 판매량합계
+```
+```{r}
+#평균판매량
+aggregate(QTY, by=list(SEX,CAT1,CAT2), FUN=mean)[order(QTY),]
+sex_cat_qty <- aggregate(QTY, by=list(SEX,CAT1,CAT2), FUN=mean)[order(QTY),]
+sex_cat_qty[order(sex_cat_qty$x,decreasing = T),] #성별 CAT2의 평균 판매량으로 해석. 
+```
 
-### AGE*CAT*QTY
+### 나이&카테고리별 판매량
+```{r}
+#합계
 aggregate(QTY, by=list(AGE,CAT1,CAT2), FUN=sum)
-aggregate(QTY, by=list(AGE,CAT1,CAT2), FUN=mean)
+age_cat_qty <- aggregate(QTY, by=list(AGE,CAT1,CAT2), FUN=sum)[order(QTY),]
+age_cat_qty[order(age_cat_qty$x,decreasing = T),] #나이대별 CAT2 총판매량
+```
 
-### SEX*AGE*CAY*QTY
-aggregate(QTY, by=list(SEX,AGE,CAT1,CAT2), FUN=sum)
-aggregate(QTY, by=list(SEX,AGE,CAT1,CAT2), FUN=mean)
+```{r}
+#평균판매량
+aggregate(QTY, by=list(AGE,CAT1,CAT2), FUN=mean)
+age_cat_qty <- aggregate(QTY, by=list(AGE,CAT1,CAT2), FUN=mean)[order(QTY),]
+age_cat_qty[order(age_cat_qty$x,decreasing = T),] #나이대별 CAT2 평균 판매량 
+```
+
+
+### 성별&나이&카테고리별 판매량
+
+```{r 성별&나이&중분류별 총판매량}
+sex_age_cat_qty <- aggregate(QTY, by=list(SEX,AGE,CAT1,CAT2), FUN=sum)[order(QTY),]
+sex_age_cat_qty[order(sex_age_cat_qty$x,decreasing = T),] #성별나이카테고리별 총 판매량 
+```
+
+```{r 성별&나이&중분류별 평균판매량}
+sex_age_cat_qty <- aggregate(QTY, by=list(SEX,AGE,CAT1,CAT2), FUN=mean)[order(QTY),]
+sex_age_cat_qty[order(sex_age_cat_qty$x,decreasing = T),]
+```
+
+
+aggregate(QTY, by=list(SEX,AGE,CAT1,CAT2), FUN=median)
+```{r 성별&나이&중분류별 판매량 중앙값}
+sex_age_cat_qty <- aggregate(QTY, by=list(SEX,AGE,CAT1,CAT2), FUN=median)[order(QTY),]
+sex_age_cat_qty[order(sex_age_cat_qty$x,decreasing = T),]
+```
+
