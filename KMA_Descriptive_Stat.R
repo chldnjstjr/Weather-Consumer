@@ -2,8 +2,9 @@ library(pacman)
 pacman::p_load("data.table", "dplyr", "pastecs", "tidyverse", "lubridate", "ggplot2","stringr","productplots","CGPfunctions")
 
 #3D 그래프 라이브러리 호출
-pacman::p_load("plotly","plot3D","tidyr","gridExtra","knitr","reshape2","plot3Drgl")
+pacman::p_load("plotly","plot3D","tidyr","gridExtra","knitr","reshape2","plot3Drgl",)
 library("plot3Drgl")
+library("googleVis")
 
 #CGPfunctions, productplots: PlpotXTabs함수
 #gridExtra, grid: 그래프 밑에 테이블 추가하기 위함. grid.table 함수
@@ -174,7 +175,9 @@ str(sex_age_cat1_qty)
 sex_age_cat1_qty_graph <- sex_age_cat1_qty %>%
   ggplot(mapping=aes(x=Group.1, y=x, color=Group.2, group=Group.3))+
   geom_line()
-sex_age_cat1_qty_graph
+
+ggplot(sex_age_cat1_qty, aes(x=Group.1, y=x, group=Group.4, colour=Group.4))+
+  geom_line()
 
 ### 중분류
 sex_age_cat2_qty <- aggregate(QTY, by=list(SEX,AGE,CAT1,CAT2), FUN=sum)[order(QTY),]
