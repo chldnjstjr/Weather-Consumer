@@ -175,7 +175,6 @@ str(sex_age_cat1_qty)
 sex_age_cat1_qty_graph <- sex_age_cat1_qty %>%
   ggplot(mapping=aes(x=Group.1, y=x, color=Group.2, group=Group.3))+
   geom_line()
-
 ggplot(sex_age_cat1_qty, aes(x=Group.1, y=x, group=Group.4, colour=Group.4))+
   geom_line()
 
@@ -208,12 +207,6 @@ year_month_meanqty_graph <- year_month_meanqty %>%
   theme(legend.position = c(0.9,0.9),legend.key.size=unit(1,"cm"))
 year_month_meanqty_graph
 
-### 3D graph
-qty_year_month <- trans %>% group_by(YEAR,MONTH) %>% summarise(input=sum(QTY,na.rm=T)) %>% spread(MONTH,input,fill=0) %>% ungroup()
-d5 <- as.matrix(qty_year_month[,-1])
-hist3D(z = d5, x = as.numeric(t(qty_year_month[,1])), y = 1:12, scale = F,expand = 0.000009, bty = "g", phi = 30, theta = 20, col = jet.col(100), alpha = 0.5,border = "black", shade = 0.2, ltheta = 90, space = 0.4, ticktype = "detailed",d = 2, xlab='연도',ylab='월',zlab='구매량')
-
 
 #PlotXTabs출처: https://ibecav.github.io/CGPfunctions/reference/PlotXTabs.html
 #ggplot출처: https://datacarpentry.org/R-ecology-lesson/04-visualization-ggplot2.html
-#도매시장 경락 데이터 시각화: http://agdatalab.com/post/wholesale_market_data2/
