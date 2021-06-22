@@ -1,69 +1,60 @@
 #Naver Trends
 #데이터 불러오기
-naver_trend <- fread("G:/내 드라이브/2021-1/날씨와 소비/data/naver_trends/naver_beauty_201819_daily.csv",  header = TRUE,encoding="UTF-8")
+naver_trend <- fread("G:/내 드라이브/2021-1/날씨와 소비/data/naver_trends/naver_beauty_201819_daily.csv", header = TRUE,encoding="UTF-8")
 naver_trend <- as.data.frame(naver_trend)
 naver_trend$DATE <- ymd(naver_trend$DATE)
+nrow(naver_trend)
 
-trans_cat1_trend <- trans %>% select(DATE,CAT1,QTY)
-trans_cat1_trend <- as.data.frame(trans_cat1_trend)
-sns_cat1_trends <- sns %>% select(DATE,CAT1,CNT)
+trans_cat1_trend <- trans[, sum(QTY), by=c("DATE","CAT1")]
+trasn_cat1_trend <- as.data.frame(trans_cat1_trend)
 
-str(naver_trend)
-str(trans_cat1_trend)
-str(sns_cat1_trends)
+sns_cat1_trends <- aggregate(sns$CNT, by=list(sns$DATE,sns$CAT1), FUN=sum)
 
+colnames(sns_cat1_trends) = c("DATE", "CAT1","CNT")
 
 trend <- left_join(trans_cat1_trend,sns_cat1_trends,by=c('DATE','CAT1'))
+trend <- left_join(trend, naver_trend, by=c('DATE','CAT1'))
+str(trend)
+trend <- rename(trend, "QTY" = "V1")
+nrow(trend)
 
-memory.size(max = TRUE) #최대 가용 메모리 
-memory.size(max=F) #현재 사용 중인 메모리
-memory.limit(size=NA) #한계치
+trend_1 <- trend[,c(3,4,5)]
+str(trend_1)
+cor(trend_1)
 
-memory.limit(size= 56000) #16gb까지 강제로 높인다.
+write.csv(trend,"G:/내 드라이브/2021-1/날씨와 소비/data/naver_trends/trend.csv",row.names = FALSE)
 
-trend <- left_join(trans_cat1_trend,sns_cat1_trends,by=c('DATE'='DATE','CAT1'='CAT1'))
+#정규화
+normalize <- function(x){
+  return((x-min(x))/(max(x)-min(x)))
+  
+}
+trend_1 <- normalize(trend_1)
+head(trend_1)
 
+#각 품목별 탐색 
+trend_food <- subset(trend, CAT1=="식품")
+trend_1_food <- trend_food[,c(3,4,5)]
+cor(trend_1_food)
 
-#httr 참고 https://cran.r-project.org/web/packages/httr/vignettes/quickstart.html
+trend_beauty <- subset(trend, CAT1=="뷰티")
+trend_1_beauty <- trend_beauty[,c(3,4,5)]
 
+trend_app <- subset(trend, CAT1=="냉난방가전")
+trend_1_app <- trend_app[,c(3,4,5)]
 
+cor(trend_1_app)
 
-#Google Trends
+cor(trend_1_beauty)
+plot(trend_1_food)
+plot(trend_1_beauty)
 
-#gtrendsR setting
-#install.packages("devtools")
-#install.packages("extrafont")
-library(devtools)
-devtools::install_github("PMassicotte/gtrendsR")
-library(gtrendsR)
-library(tidyverse)
-library(extrafont)
-loadfonts()
-par(family = "NanumGothic")
-
-#gtrendsR 패키지 살펴보기
-# 활용가능한 함수 
-ls("package:gtrendsR")
-
-# 로컬(locale) 문자집합 확인
-localeToCharset()
-
-kw <- "webzen"
-
-if (!(Encoding(kw) == "utf-8")) {
-  kw <- iconv(kw, "latin1", "utf-8", sub = "byte")
+svi <- function(x){
+  round((x/max(x))*100,2)
 }
 
-#검색어 하나 검색
-gtrends("호날두") %>% 
-  plot()
-
-#복수 검색어 비교 
-wz <- gtrends(c("메시","호날두","네이마르","베일"), geo = "KR", time = "today 3-m") %>%
-  plot()
-
-#데이터의 값들도 볼 수 있다.
-head(wz$data)
 
 
-#참고 http://statkclee.github.io/politics/google-trend.html
+trend_1_beauty$CNT <- svi(trend_1_beauty$CNT)
+trend_1_beauty$QTY <- svi(trend_1_beauty$QTY)
+
