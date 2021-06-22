@@ -31,7 +31,7 @@ seasons = function(x){
   if(x %in% 8:10) return('Fall')
   if(x %in% c(11,12,1)) return('Winter')
 }
-trans$SEASON = sapply(trans$MONTH, seasons) #만든 함수 자체가 메모리 하자가 너무 큼. 
+trans$SEASON = sapply(trans$MONTH, seasons)
 trans$SEASON = as.factor(trans$SEASON)
 trans$MONTH = as.factor(trans$MONTH)
 
